@@ -1,0 +1,15 @@
+name = "calorie-tracker"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+rules = [
+  { type = "Text", globs = ["**/*.html"], fallthrough = true }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "calorie-tracker"
+database_id = "471ce920-98c5-45bb-8e9c-3fd8e9080a12"
+
+[ai]
+binding = "AI"
