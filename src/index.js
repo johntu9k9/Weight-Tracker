@@ -1,4 +1,5 @@
 import PAGE from "./index.html";
+import { makeIcon, MANIFEST, SW } from "./assets.js";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 // GLM-5.3-Flash won a bake-off on real entries (Workers Paid plan model). Reasoning can't be
@@ -78,6 +79,15 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
+
+    // installable-app files (public, no token needed)
+    if (method === "GET" || method === "HEAD") {
+      const size = { "/icon-512.png": 512, "/apple-touch-icon.png": 180 }[path];
+      const day = { "cache-control": "public, max-age=86400" };
+      if (size) return new Response(await makeIcon(size), { headers: { "content-type": "image/png", ...day } });
+      if (path === "/manifest.webmanifest") return new Response(JSON.stringify(MANIFEST), { headers: { "content-type": "application/manifest+json", ...day } });
+      if (path === "/sw.js") return new Response(SW, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" } });
+    }
 
     if (!path.startsWith("/api/")) {
       return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
