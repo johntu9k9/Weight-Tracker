@@ -30,11 +30,17 @@ A single Cloudflare Worker serves the tracker page and a small JSON API.
 ```bash
 npm install
 npx wrangler login
-npx wrangler secret put API_TOKEN   # only needed once; it's already set on the live Worker
 npx wrangler deploy
 ```
-The API fails closed: without `API_TOKEN` set, every `/api/*` call returns 401.
-The page asks for the token once and keeps it in that browser.
+## Auth
+The Worker sits behind **Cloudflare Access** (MFA enforced org-wide). Access passes a signed JWT in
+`Cf-Access-Jwt-Assertion`; the Worker re-verifies it (RS256 signature against the team's certs, issuer,
+audience, expiry, and email) before serving any `/api/*` call, so there is no separate password.
+The team domain, app AUD and allowed email are constants at the top of the auth block in `src/index.js`.
+
+The old `API_TOKEN` bearer token still works as a fallback (local dev, emergencies). It is only
+accepted if the secret exists; retire it with `npx wrangler secret delete API_TOKEN`.
+The API fails closed: with no valid Access JWT and no token, every `/api/*` call returns 401.
 
 ## Local development
 ```bash
@@ -42,7 +48,7 @@ npx wrangler d1 execute calorie-tracker --local --file=schema.sql
 npx wrangler dev --local --var API_TOKEN:dev
 ```
 
-## API (all require `Authorization: Bearer <API_TOKEN>`)
+## API (all require an Access login, or `Authorization: Bearer <API_TOKEN>` as fallback)
 | Method | Path | Body / query |
 |---|---|---|
 | GET | `/api/day?d=YYYY-MM-DD` | meals, exercises, weight for a day |

@@ -68,8 +68,39 @@ const json = (data, status = 200) =>
   });
 const bad = (msg, status = 400) => json({ error: msg }, status);
 
-function authorized(request, env) {
-  if (!env.API_TOKEN) return false; // fail closed until the API_TOKEN secret is set
+// ---- Cloudflare Access login (MFA is enforced there) ----
+// Access sits in front of this Worker and passes a signed JWT in Cf-Access-Jwt-Assertion.
+// We re-verify it here (signature, issuer, audience, expiry, email) so the API stays closed
+// even if a request ever reaches the Worker some other way.
+const ACCESS_TEAM = "https://silent-field-4a1d.cloudflareaccess.com";
+const ACCESS_AUD = "d4096196d405049c9a1f2f7f67aaf09adf45f0ed39de4c79526f6e38c236f8ec";
+const ACCESS_EMAIL = "tu.john9k9@gmail.com";
+const b64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+export async function accessEmail(request, now = Date.now()) {
+  const jwt = request.headers.get("cf-access-jwt-assertion");
+  const [h, p, sig] = (jwt || "").split(".");
+  if (!sig) return null;
+  try {
+    const dec = (x) => JSON.parse(new TextDecoder().decode(b64u(x)));
+    const head = dec(h), c = dec(p);
+    if (head.alg !== "RS256" || c.iss !== ACCESS_TEAM) return null;
+    if (![].concat(c.aud).includes(ACCESS_AUD)) return null;
+    if (!c.exp || c.exp * 1000 < now) return null;
+    const certs = await (await fetch(ACCESS_TEAM + "/cdn-cgi/access/certs", { cf: { cacheTtl: 3600, cacheEverything: true } })).json();
+    const jwk = certs.keys.find((k) => k.kid === head.kid);
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64u(sig), new TextEncoder().encode(h + "." + p));
+    return ok && c.email === ACCESS_EMAIL ? c.email : null;
+  } catch {
+    return null;
+  }
+}
+
+async function authorized(request, env) {
+  if (await accessEmail(request)) return true;
+  // Fallback for local dev / emergencies: the old bearer token. Delete the API_TOKEN secret to retire it.
+  if (!env.API_TOKEN) return false; // fail closed when no token is set
   const h = request.headers.get("authorization") || "";
   return h === `Bearer ${env.API_TOKEN}`;
 }
@@ -92,7 +123,7 @@ export default {
     if (!path.startsWith("/api/")) {
       return new Response(PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
-    if (!authorized(request, env)) return bad("unauthorized", 401);
+    if (!(await authorized(request, env))) return bad("unauthorized", 401);
 
     try {
       // ---- one day: meals + weight ----

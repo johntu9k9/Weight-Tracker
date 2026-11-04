@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -297,10 +297,19 @@ input:disabled{opacity:.55}
   // ---- api ----
   let token = store.get("token") || "";
   async function api(path, opts = {}) {
-    const res = await fetch(path, {
-      ...opts,
-      headers: { "content-type": "application/json", ...(token ? { authorization: "Bearer " + token } : {}) },
-    });
+    let res;
+    try {
+      res = await fetch(path, {
+        ...opts,
+        headers: { "content-type": "application/json", ...(token ? { authorization: "Bearer " + token } : {}) },
+      });
+    } catch (e) {
+      // An expired Cloudflare Access session redirects API calls to the login page, which the browser
+      // reports as a network error. Reload once so Access can sign you back in.
+      let last = 0; try { last = Number(sessionStorage.getItem("reloaded") || 0); } catch {}
+      if (navigator.onLine && Date.now() - last > 60000) { try { sessionStorage.setItem("reloaded", String(Date.now())); } catch {} location.reload(); }
+      throw new Error("Can't reach the server");
+    }
     if (res.status === 401) { showGate(); throw new Error("unauthorized"); }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || res.statusText);
