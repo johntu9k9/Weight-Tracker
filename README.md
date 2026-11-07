@@ -3,7 +3,7 @@
 A single Cloudflare Worker serves the tracker page and a small JSON API.
 
 - **Data:** D1 database `calorie-tracker` (id `471ce920-98c5-45bb-8e9c-3fd8e9080a12`)
-- **AI estimates:** Workers AI, model `@cf/zai-org/glm-5.3-flash`
+- **AI estimates:** Workers AI, model `@cf/deepseek-ai/deepseek-v4.1-flash-1017`
 - **Live:** https://calorie-tracker.tu-john9k9.workers.dev
 
 ## Features
