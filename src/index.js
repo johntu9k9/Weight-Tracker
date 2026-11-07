@@ -2,9 +2,9 @@ import PAGE from "./index.html";
 import { makeIcon, MANIFEST, SW } from "./assets.js";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-// GLM-5.3-Flash won a bake-off on real entries (Workers Paid plan model). Reasoning can't be
-// turned off on this model, only lowered; "low" uses almost no extra tokens for this task.
-const AI_MODEL = "@cf/zai-org/glm-5.3-flash";
+// DeepSeek V4.1 Flash replaced GLM-5.3-Flash (retiring Nov 20, 2026), which had won a bake-off on
+// real entries. reasoning_effort "low" keeps extra reasoning tokens to a minimum for this task.
+const AI_MODEL = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
 const MAX_TEXT = 4000; // characters per meal / activity description
 
 const FOOD_PROMPT =
